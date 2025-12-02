@@ -1,14 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
-// Import unique de toutes les icônes
 import { 
   Wind, Activity, BarChart2, ShieldCheck, MapPin, AlertTriangle, X, Info, Leaf, Search 
 } from 'lucide-react';
-
 import { 
   AreaChart, Area, XAxis, Tooltip, ResponsiveContainer 
 } from 'recharts';
-// Imports Carte (Leaflet)
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -21,7 +18,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
 });
 
-// --- DONNÉES INTELLIGENTES ---
+// --- DONNÉES PAR DÉFAUT ---
 const WORLD_DATA = {
   France: {
     center: [46.603354, 1.888334],
@@ -67,11 +64,76 @@ function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedCountry, setSelectedCountry] = useState('France');
   const [currentCity, setCurrentCity] = useState(WORLD_DATA['France'].cities[0]);
-  const [searchText, setSearchText] = useState(''); // ✅ État barre de recherche
+  const [searchText, setSearchText] = useState('');
   
   const [compareCity1, setCompareCity1] = useState(WORLD_DATA['France'].cities[0]);
   const [compareCity2, setCompareCity2] = useState(WORLD_DATA['Chine'].cities[0]);
   const [showHealthModal, setShowHealthModal] = useState(false);
+
+  // --- FONCTION DE RECHERCHE (API OPEN-METEO : 100% FIABLE) ---
+  const handleSearch = async (e) => {
+    if (e.key === 'Enter' && searchText.trim() !== '') {
+      try {
+        // 1. Trouver les coordonnées de la ville (Nominatim)
+        const geoResponse = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${searchText}`);
+        const geoData = await geoResponse.json();
+
+        if (geoData && geoData.length > 0) {
+          const result = geoData[0];
+          const lat = result.lat;
+          const lon = result.lon;
+
+          // 2. Demander la pollution à Open-Meteo (Plus fiable qu'OpenAQ pour la couverture)
+          // On demande : PM2.5, NO2, O3 et l'AQI européen
+          const meteoUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=pm2_5,nitrogen_dioxide,ozone,european_aqi`;
+          
+          const aqResponse = await fetch(meteoUrl);
+          const aqData = await aqResponse.json();
+          console.log("Données Open-Meteo :", aqData);
+
+          // 3. Traiter les données
+          let realPm25 = 0;
+          let realNo2 = 0;
+          let realO3 = 0;
+          let realAqi = 0;
+
+          if (aqData.current) {
+            realPm25 = aqData.current.pm2_5 || 0;
+            realNo2 = aqData.current.nitrogen_dioxide || 0;
+            realO3 = aqData.current.ozone || 0;
+            realAqi = aqData.current.european_aqi || 0;
+          }
+
+          // Open-Meteo utilise l'AQI européen (0-100 = Bon). 
+          // On le convertit un peu pour qu'il ressemble au standard US de ton site
+          let displayAqi = realAqi > 0 ? realAqi : Math.round(realPm25 * 3);
+
+          let newStatus = 'Bon';
+          if (displayAqi > 50) newStatus = 'Modéré';
+          if (displayAqi > 80) newStatus = 'Mauvais'; // L'échelle euro est plus stricte
+          if (displayAqi > 150) newStatus = 'Dangereux';
+
+          setCurrentCity({
+            name: result.display_name.split(',')[0],
+            lat: parseFloat(lat),
+            lng: parseFloat(lon),
+            aqi: displayAqi,
+            pm25: realPm25,
+            no2: realNo2,
+            o3: realO3,
+            status: newStatus
+          });
+          
+          setSearchText('');
+        } else {
+          alert("Ville introuvable 😕");
+        }
+      } catch (error) {
+        console.error("Erreur API :", error);
+        alert("Erreur technique. Vérifiez votre connexion.");
+      }
+    }
+  };
 
   const getBackground = (aqi) => {
     if (aqi <= 50) return 'var(--bg-good)';
@@ -81,47 +143,7 @@ function App() {
   };
 
   const allCities = Object.values(WORLD_DATA).flatMap(c => c.cities);
-// --- FONCTION DE RECHERCHE ---
-  const handleSearch = async (e) => {
-    // Si l'utilisateur appuie sur la touche "Entrée"
-    if (e.key === 'Enter' && searchText.trim() !== '') {
-      try {
-        // 1. Appel à l'API OpenStreetMap (Nominatim) pour trouver la ville
-        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${searchText}`);
-        const data = await response.json();
 
-        if (data && data.length > 0) {
-          const result = data[0]; // On prend le premier résultat trouvé
-          
-          // 2. On génère un AQI aléatoire pour simuler le changement de données
-          // (Plus tard, on connectera une vraie API de pollution ici)
-          const randomAQI = Math.floor(Math.random() * 150) + 20; 
-          let newStatus = 'Bon';
-          if (randomAQI > 50) newStatus = 'Modéré';
-          if (randomAQI > 100) newStatus = 'Mauvais';
-
-          // 3. Mise à jour de la ville actuelle
-          setCurrentCity({
-            name: result.display_name.split(',')[0], // Prend juste le nom de la ville
-            lat: parseFloat(result.lat),
-            lng: parseFloat(result.lon),
-            aqi: randomAQI,
-            pm25: Math.floor(randomAQI / 2),
-            no2: Math.floor(randomAQI / 3),
-            o3: Math.floor(randomAQI / 4),
-            status: newStatus
-          });
-          
-          // Petit reset du champ de recherche
-          setSearchText(''); 
-        } else {
-          alert("Ville introuvable 😕. Essayez une grande ville (ex: Tokyo, Berlin).");
-        }
-      } catch (error) {
-        console.error("Erreur lors de la recherche :", error);
-      }
-    }
-  };
   return (
     <div className="app-wrapper" style={{ background: getBackground(currentCity.aqi) }}>
       
@@ -146,8 +168,6 @@ function App() {
       )}
 
       <div className="glass-dashboard">
-        
-        {/* BARRE LATÉRALE */}
         <nav className="sidebar">
           <div className="brand">
             <Wind size={32} color="white" fill="white" style={{filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))'}} />
@@ -174,7 +194,6 @@ function App() {
                 onChange={(e) => {
                   const newCountry = e.target.value;
                   setSelectedCountry(newCountry);
-                  // Quand on change de pays, on zoome direct sur la 1ère ville de ce pays
                   setCurrentCity(WORLD_DATA[newCountry].cities[0]);
                 }} 
                 style={{width: '100%'}}
@@ -187,37 +206,22 @@ function App() {
           </div>
         </nav>
 
-        {/* CONTENU PRINCIPAL */}
         <div className="main-content">
-          
-          {/* ✅ EN-TÊTE CORRIGÉ (Recherche + Titre) */}
           <header className="header-section fade-in-up">
             <div>
               <div style={{
-                display: 'flex', 
-                alignItems: 'center', 
-                background: 'rgba(255,255,255,0.5)', 
-                padding: '8px 15px', 
-                borderRadius: '50px', 
-                marginBottom: '15px',
-                border: '1px solid rgba(255,255,255,0.8)',
-                maxWidth: '300px'
+                display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.5)', 
+                padding: '8px 15px', borderRadius: '50px', marginBottom: '15px',
+                border: '1px solid rgba(255,255,255,0.8)', maxWidth: '300px'
               }}>
                 <Search size={18} color="#64748b" style={{marginRight: '10px'}}/>
                 <input 
                   type="text" 
-                  placeholder="Rechercher une ville + Entrée..." 
+                  placeholder="Ville + Entrée..." 
                   value={searchText}
                   onChange={(e) => setSearchText(e.target.value)}
-                  onKeyDown={handleSearch} // <--- C'est ça qui déclenche la magie !
-                  style={{
-                    background: 'transparent', 
-                    border: 'none', 
-                    outline: 'none', 
-                    width: '100%', 
-                    color: '#1e293b', 
-                    fontWeight: '500'
-                  }}
+                  onKeyDown={handleSearch}
+                  style={{background: 'transparent', border: 'none', outline: 'none', width: '100%', color: '#1e293b', fontWeight: '500'}}
                 />
               </div>
 
@@ -226,10 +230,7 @@ function App() {
             </div>
             
             <div className="aqi-badge" style={{
-              background: 'rgba(255,255,255,0.9)', 
-              padding: '10px 20px', 
-              borderRadius: '50px', 
-              fontWeight: '800',
+              background: 'rgba(255,255,255,0.9)', padding: '10px 20px', borderRadius: '50px', fontWeight: '800',
               color: currentCity.aqi > 100 ? '#ef4444' : currentCity.aqi > 50 ? '#f59e0b' : '#10b981',
               boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
             }}>
@@ -237,33 +238,21 @@ function App() {
             </div>
           </header>
 
-          {/* DASHBOARD */}
           {activeTab === 'dashboard' && (
             <div className="bento-grid fade-in-up">
               <div className="bento-card map-container">
-                <MapContainer center={WORLD_DATA[selectedCountry].center} zoom={WORLD_DATA[selectedCountry].zoom} scrollWheelZoom={true}>
-                  <TileLayer
-                    attribution='&copy; OpenStreetMap'
-                    url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-                  />
-                  {/* On centre la carte sur la ville actuelle (currentCity) avec un zoom plus proche (10) */}
-                    <MapUpdater center={[currentCity.lat, currentCity.lng]} zoom={10} />
-                  {WORLD_DATA[selectedCountry].cities.map((city, idx) => (
-                    <Marker 
-                      key={idx} 
-                      position={[city.lat, city.lng]}
-                      eventHandlers={{ click: () => setCurrentCity(city) }}
-                    >
-                      <Popup><strong>{city.name}</strong><br />AQI: {city.aqi}</Popup>
-                    </Marker>
-                  ))}
+                <MapContainer center={[currentCity.lat, currentCity.lng]} zoom={10} scrollWheelZoom={true}>
+                  <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+                  <MapUpdater center={[currentCity.lat, currentCity.lng]} zoom={10} />
+                  <Marker position={[currentCity.lat, currentCity.lng]}>
+                    <Popup><strong>{currentCity.name}</strong><br />AQI: {currentCity.aqi}</Popup>
+                  </Marker>
                 </MapContainer>
               </div>
 
               <div className="bento-card score-card">
                 <div className="score-circle" style={{
-                  backgroundColor: currentCity.aqi > 100 ? '#ef4444' : currentCity.aqi > 50 ? '#f59e0b' : '#10b981',
-                  color: 'white'
+                  backgroundColor: currentCity.aqi > 100 ? '#ef4444' : currentCity.aqi > 50 ? '#f59e0b' : '#10b981', color: 'white'
                 }}>
                   {currentCity.aqi}
                 </div>
@@ -319,7 +308,6 @@ function App() {
             </div>
           )}
 
-          {/* COMPARATEUR */}
           {activeTab === 'compare' && (
             <div className="fade-in-up">
               <h2>Comparateur</h2>
@@ -345,15 +333,12 @@ function App() {
             </div>
           )}
 
-          {/* PRÉVENTION */}
           {activeTab === 'prevention' && (
             <div className="fade-in-up">
               <h2>Prévention</h2>
               <p>Conseils adaptés pour {currentCity.name}.</p>
-              {/* Contenu simplifié pour éviter la surcharge */}
             </div>
           )}
-
         </div>
       </div>
     </div>

@@ -1,3 +1,22 @@
+/* =========================================
+   COMPOSANT : CHAMP DE RECHERCHE AVEC SUGGESTIONS
+   =========================================
+   Fournit un champ de recherche réactif utilisant Nominatim
+   (OpenStreetMap) pour obtenir des suggestions de lieux.
+
+   Principales responsabilités :
+   - Debounce des requêtes (300ms) pour limiter les appels réseau.
+   - Annulation des requêtes en cours via AbortController.
+   - Filtrage anti-doublons (ville + pays) pour une liste propre.
+   - Gestion des clics hors composant pour fermer la liste.
+
+   Props:
+   - value: valeur du champ (contrôlé par le parent)
+   - onChange: callback quand le texte change (reçoit l'événement)
+   - onSelect: callback quand une suggestion est choisie (lat, lon, name)
+   - placeholder: texte affiché lorsque vide
+*/
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, Loader2 } from 'lucide-react';
 
@@ -7,6 +26,7 @@ const SearchInput = ({ value, onChange, onSelect, placeholder }) => {
     const [isLoading, setIsLoading] = useState(false);
     const wrapperRef = useRef(null);
 
+    // Ferme la liste de suggestions si l'utilisateur clique en dehors
     useEffect(() => {
         function handleClickOutside(event) {
             if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
@@ -17,9 +37,10 @@ const SearchInput = ({ value, onChange, onSelect, placeholder }) => {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [wrapperRef]);
 
-    // --- LOGIQUE DE RECHERCHE ---
+    // --- LOGIQUE DE RECHERCHE AVEC DEBOUNCE ---
     useEffect(() => {
-        if (value.length < 3) {
+        if (!value || value.length < 3) {
+            // Trop court => on vide les suggestions
             setSuggestions([]);
             setShowSuggestions(false);
             return;
@@ -28,11 +49,11 @@ const SearchInput = ({ value, onChange, onSelect, placeholder }) => {
         const controller = new AbortController();
         const signal = controller.signal;
 
-        // On garde le délai de 300ms (Debounce), c'est ça qui garde la recherche fluide !
+        // Debounce 300ms pour éviter les appels à chaque frappe
         const timeoutId = setTimeout(async () => {
             setIsLoading(true);
             try {
-                // MODIFICATION ICI : J'ai retiré "&countrycodes=fr"
+                // Requête vers Nominatim (format JSON)
                 const response = await fetch(
                     `https://nominatim.openstreetmap.org/search?format=json&q=${value}&addressdetails=1&limit=10`,
                     { signal }
@@ -40,16 +61,13 @@ const SearchInput = ({ value, onChange, onSelect, placeholder }) => {
 
                 const data = await response.json();
 
-                // FILTRE ANTI-DOUBLONS (Adapté pour le monde)
-                // On vérifie le duo "Ville + Pays" pour ne pas supprimer Paris (USA) si on a déjà Paris (France)
+                // FILTRE ANTI-DOUBLONS (Ville + Pays)
                 const uniqueCities = [];
                 const seenNames = new Set();
 
                 data.forEach((place) => {
                     const city = place.address.city || place.address.town || place.address.village || place.display_name.split(',')[0];
                     const country = place.address.country || "";
-
-                    // On crée une clé unique "Ville-Pays"
                     const uniqueKey = `${city}-${country}`;
 
                     if (city && !seenNames.has(uniqueKey)) {
@@ -58,11 +76,12 @@ const SearchInput = ({ value, onChange, onSelect, placeholder }) => {
                     }
                 });
 
+                // On garde au plus 5 suggestions pour l'UI
                 setSuggestions(uniqueCities.slice(0, 5));
                 setShowSuggestions(true);
 
             } catch (error) {
-                if (error.name !== 'AbortError') console.error("Erreur:", error);
+                if (error.name !== 'AbortError') console.error("Erreur de recherche:", error);
             } finally {
                 setIsLoading(false);
             }
@@ -76,6 +95,7 @@ const SearchInput = ({ value, onChange, onSelect, placeholder }) => {
 
     const handleChange = (e) => onChange(e);
 
+    // Conversion d'une suggestion Nominatim en données simples pour le parent
     const handleSelect = (place) => {
         const name = place.address.city || place.address.town || place.address.village || place.display_name.split(',')[0];
         onSelect(place.lat, place.lon, name);
@@ -84,6 +104,7 @@ const SearchInput = ({ value, onChange, onSelect, placeholder }) => {
 
     return (
         <div ref={wrapperRef} style={{ position: 'relative', width: '100%' }}>
+            {/* Input stylisé avec icône / loader */}
             <div style={{
                 display: 'flex', alignItems: 'center', background: 'var(--input-bg)',
                 padding: '8px 15px', borderRadius: '50px', border: '1px solid var(--glass-border)', width: '100%'
@@ -104,6 +125,7 @@ const SearchInput = ({ value, onChange, onSelect, placeholder }) => {
                 />
             </div>
 
+            {/* Liste de suggestions (positionnée en absolute) */}
             {showSuggestions && suggestions.length > 0 && (
                 <div style={{
                     position: 'absolute', top: '110%', left: 0, right: 0,
@@ -112,8 +134,7 @@ const SearchInput = ({ value, onChange, onSelect, placeholder }) => {
                 }}>
                     {suggestions.map((place, index) => {
                         const displayName = place.address.city || place.address.town || place.address.village || place.display_name.split(',')[0];
-                        // MODIFICATION ICI : On affiche le PAYS
-                        const context = place.address.country || "";
+                        const context = place.address.country || ""; // Pays affiché à droite
 
                         return (
                             <div
@@ -124,7 +145,7 @@ const SearchInput = ({ value, onChange, onSelect, placeholder }) => {
                                 onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
                             >
                                 <strong>{displayName}</strong>
-                                {/* Affichage du pays en petit à côté */}
+                                {/* Affiche le pays en petit pour lever les ambiguïtés */}
                                 {context && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '10px', fontStyle: 'italic' }}>{context}</span>}
                             </div>
                         );

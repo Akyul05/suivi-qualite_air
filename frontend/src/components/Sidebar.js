@@ -1,3 +1,14 @@
+/* =========================================
+   COMPOSANT : SIDEBAR (NAVIGATION + PARAMÈTRES)
+   =========================================
+   Barre latérale principale de l'application. Contient :
+   - navigation entre onglets
+   - gestion rapide du profil utilisateur (sensible / sportif)
+   - accès et navigation vers les favoris
+   - bascule du thème (sombre/clair)
+   - menu overlay optimisé pour mobile
+*/
+
 import React, { useState } from 'react';
 import {
     Activity, BarChart2, Info, Leaf, Calendar,
@@ -14,7 +25,8 @@ const Sidebar = ({
 
     const [isFavOpen, setIsFavOpen] = useState(false);
 
-    // NOUVEAU : État pour le menu mobile
+    // État pour le menu mobile (overlay). Contrôle l'affichage du
+    // panneau mobile qui contient des réglages et favoris sur petits écrans.
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     return (
@@ -56,7 +68,7 @@ const Sidebar = ({
 
                     {/* --- SECTION DESKTOP (Cachée sur mobile par CSS existant) --- */}
                     <div className="desktop-only-content">
-                        {/* PROFIL SANTÉ */}
+                        {/* PROFIL SANTÉ : toggles rapides pour le profil utilisateur (sensible / sportif) */}
                         <div style={{ marginTop: '25px', borderTop: '1px solid var(--glass-border)', paddingTop: '15px' }}>
                             <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: '10px', textTransform: 'uppercase', display: 'block' }}>
                                 Mon Profil
@@ -71,7 +83,7 @@ const Sidebar = ({
                             </div>
                         </div>
 
-                        {/* FAVORIS */}
+                        {/* FAVORIS : liste collapsible des emplacements favoris (desktop) */}
                         {favorites && favorites.length > 0 && (
                             <div style={{ marginTop: '20px', borderTop: '1px solid var(--glass-border)', paddingTop: '15px' }}>
                                 <button onClick={() => setIsFavOpen(!isFavOpen)} style={{ background: 'transparent', border: 'none', width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', padding: '5px 0', marginBottom: '5px' }}>
@@ -101,7 +113,11 @@ const Sidebar = ({
                 </div>
             </nav>
 
-            {/* --- NOUVEAU : MENU MOBILE (OVERLAY) --- */}
+            {/* --- MENU MOBILE (OVERLAY) ---
+                Version compacte du menu pour petits écrans :
+                - reprend le profil, les favoris et le toggle thème
+                - s'ouvre en overlay contrôlé par `isMobileMenuOpen`
+            --- */}
             {isMobileMenuOpen && (
                 <div className="mobile-menu-overlay fade-in-up">
                     <div className="mobile-menu-header">

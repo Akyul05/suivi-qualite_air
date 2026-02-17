@@ -1,3 +1,13 @@
+/* =========================================
+   ONGLET : POLLUANTS MAJEURS
+   =========================================
+   Présente l'échelle AQI et des cartes explicatives pour les polluants
+   principaux. Les données (couleurs, textes) viennent de `../data/constants`.
+
+   Le composant est purement présentatif : il itère sur `AQI_SCALE`
+   pour le tableau et sur `POLLUTANTS_DATA` pour les cartes détaillées.
+*/
+
 import React from 'react';
 import { AQI_SCALE, POLLUTANTS_DATA } from '../data/constants';
 
@@ -7,7 +17,7 @@ const TabPollutants = () => {
             <h2>Polluants Majeurs</h2>
             <p className="subtitle" style={{ marginBottom: '30px' }}>Comprendre les indices et les substances nocives.</p>
 
-            {/* Tableau AQI (Inchangé) */}
+            {/* Tableau AQI : mapping simple des seuils et niveaux */}
             <div className="bento-card" style={{ marginBottom: '40px', padding: '25px', overflowX: 'auto' }}>
                 <h3 style={{ marginBottom: '20px', color: 'var(--text-primary)' }}>Échelle AQI</h3>
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '600px' }}>
@@ -30,7 +40,7 @@ const TabPollutants = () => {
                 </table>
             </div>
 
-            {/* Cartes Polluants : MODIFICATION ICI (grid-template-columns) */}
+            {/* Cartes Polluants : grille simple 2 colonnes */}
             <div className="pollutant-grid" style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(2, 1fr)', // Force 2 colonnes

@@ -1,3 +1,17 @@
+/* =========================================
+    ONGLET : DASHBOARD PRINCIPAL
+    =========================================
+    Affiche la carte centrale, le score AQI, les détails de polluants
+    et un graphique historique (7 jours). Ce composant est principalement
+    présentatif et reçoit toutes les données préparées depuis le parent.
+
+    Props:
+    - currentCity: objet décrivant la ville courante (coords, aqi, pm25, pm10, no2, o3, name, status)
+    - historyData: tableau pour le graphique historique ({time, aqi})
+    - setShowHealthModal: fonction pour afficher la modale santé
+    - onMapClick: callback quand l'utilisateur clique sur la carte
+*/
+
 import React from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts';

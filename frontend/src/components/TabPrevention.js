@@ -1,24 +1,41 @@
+/* =========================================
+   ONGLET : PRÉVENTION ET CONSEILS
+   =========================================
+   Affiche des conseils adaptés au profil utilisateur et à la qualité
+   de l'air courante. Le contenu textuel est fourni par
+   `PREVENTION_TIPS` (../data/constants).
+
+   Comportements clés :
+   - Filtrage des cartes selon `userProfile` (sportif, sensible)
+   - Alerte dynamique personnalisée (ex: stop sport si AQI élevé)
+   - Alerte globale basée sur `currentCity.aqi`
+
+   Props:
+   - currentCity: objet de la ville courante (au minimum `aqi`, `name`)
+   - userProfile: profil utilisateur (flags: `sporty`, `sensitive`)
+*/
+
 import React from 'react';
 import { AlertTriangle, UserCheck, HeartPulse } from 'lucide-react';
 import { PREVENTION_TIPS } from '../data/constants';
 
 const TabPrevention = ({ currentCity, userProfile }) => {
 
-    // LOGIQUE DE FILTRAGE DES CARTES
+    // LOGIQUE DE FILTRAGE DES CARTES : on transforme l'objet en tableau
     let displayTips = Object.entries(PREVENTION_TIPS); // Par défaut : tout
 
     if (userProfile?.sporty) {
-        // Si sportif : On garde SEULEMENT "conducteurs" et "pietons" (sport), on vire "autres" (maison)
+        // Si sportif : on retire les cartes 'autres' (conseils maison/général)
         displayTips = displayTips.filter(([key]) => key !== 'autres');
     }
     else if (userProfile?.sensitive) {
-        // Si sensible : On met "autres" (Santé/Maison) en PREMIER
+        // Si sensible : on priorise la carte 'autres' (santé/maison)
         const sante = displayTips.find(([key]) => key === 'autres');
         const reste = displayTips.filter(([key]) => key !== 'autres');
         displayTips = [sante, ...reste];
     }
 
-    // ALERTE DYNAMIQUE
+    // ALERTE DYNAMIQUE SELON LE PROFIL
     const getAlert = () => {
         if (userProfile?.sensitive && currentCity.aqi > 50) {
             return { color: '#ef4444', icon: <HeartPulse size={24} />, title: "Attention (Sensible)", msg: "Air moyen ou mauvais. Gardez votre traitement sur vous." };
@@ -38,7 +55,7 @@ const TabPrevention = ({ currentCity, userProfile }) => {
                 <p className="subtitle">Adaptés à votre profil pour <strong>{currentCity.name}</strong></p>
             </div>
 
-            {/* Alerte Profil */}
+            {/* Alerte spécifique au profil (ex: sensible, sportif) */}
             {alert && (
                 <div style={{ background: 'white', borderLeft: `5px solid ${alert.color}`, padding: '20px', borderRadius: '12px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
                     <div style={{ color: alert.color }}>{alert.icon}</div>
@@ -49,7 +66,7 @@ const TabPrevention = ({ currentCity, userProfile }) => {
                 </div>
             )}
 
-            {/* Alerte Globale */}
+            {/* Alerte globale simple selon le AQI */}
             <div style={{ background: currentCity.aqi > 100 ? '#fef2f2' : '#f0fdf4', borderLeft: `5px solid ${currentCity.aqi > 100 ? '#ef4444' : '#10b981'}`, padding: '20px', borderRadius: '12px', marginBottom: '30px', display: 'flex', alignItems: 'center', gap: '15px' }}>
                 <AlertTriangle color={currentCity.aqi > 100 ? '#ef4444' : '#10b981'} size={28} />
                 <div>

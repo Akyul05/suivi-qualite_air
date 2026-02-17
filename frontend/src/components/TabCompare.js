@@ -1,3 +1,18 @@
+/* =========================================
+    ONGLET : COMPARATEUR (TabCompare)
+    =========================================
+    Permet à l'utilisateur de comparer deux villes en simultané :
+    - recherche / sélection via `SearchInput`
+    - affichage des informations clé (AQI, polluants) pour chaque ville
+    - graphique historique comparé (7 jours) utilisant `recharts`
+
+    Props attendues :
+    - compareSearch1/2, setCompareSearch1/2 : valeurs et setters des inputs
+    - handleCompareSearch, handleCompareSelect : callbacks pour la recherche
+    - compareCity1/2 : objets city contenant `name`, `aqi`, `pm25`, `pm10`, `no2`, `o3`, `status`
+    - compareHistory : tableau d'objets { time, aqi1, aqi2 } pour le graphique
+*/
+
 import React from 'react';
 import { MapPin } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, Legend } from 'recharts';
